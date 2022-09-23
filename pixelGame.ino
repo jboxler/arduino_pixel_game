@@ -26,7 +26,26 @@ class Runnable {
     }
 };
 
+class Drawable {
+  static Drawable *headDrawable;
+  Drawable *nextDrawable;
+
+  public:
+    Drawable() {
+      nextDrawable = headDrawable;
+      headDrawable = this;
+    }
+
+    virtual void draw() = 0;
+
+    static void drawAll() {
+      for (Drawable *r = headDrawable; r; r = r->nextDrawable)
+        r->draw();
+    }
+};
+
 Runnable *Runnable::headRunnable = NULL;
+Drawable *Drawable::headDrawable = NULL;
 
 class LED: public Runnable {
   const byte powerOutPin;
@@ -54,7 +73,7 @@ class LED: public Runnable {
         isOn = false;
       } else {
         digitalWrite(powerOutPin, 1);
-        delay(50);
+        //delay(50); this will slow down the code substantually, i don't see te point of it
         isOn = true;
       }
     }
@@ -87,9 +106,7 @@ class Button: public Runnable {
       if (prevState == HIGH && state == LOW) {
         buttonDownMs = millis();
       } else if (prevState == LOW && state == HIGH) {
-        if (millis() - buttonDownMs < 50) {
-
-        } else {
+        if (millis() - buttonDownMs > 50) {
           press();
         }
       }
@@ -114,7 +131,7 @@ class LEDControlButton: public Button {
   // Initialize the OLED display using Wire library
   // DFRobot_OLED12864  display(0x3c);
 
-class OLED: public DFRobot_OLED12864, public Runnable {
+class OLED: public DFRobot_OLED12864, public Runnable, public Drawable {
 
   public:
     OLED() : DFRobot_OLED12864(0x3c) {}
@@ -125,7 +142,9 @@ class OLED: public DFRobot_OLED12864, public Runnable {
       flipScreenVertically();
     }
 
-    void loop() {
+    void loop() {}
+
+    void draw() {
       display();
       clearOLED();
     }
@@ -166,7 +185,7 @@ class OLED: public DFRobot_OLED12864, public Runnable {
 
 };
 
-class Object: public Runnable {
+class Object: public Runnable, public Drawable {
   int positionX;
   int positionY;
   int16_t radius = 3;
@@ -183,10 +202,13 @@ class Object: public Runnable {
     void loop() {
       if (positionX < 200) {
         positionX++;
-        drawObject();
       } else {
         setup();
       }
+    }
+
+    void draw() {
+      drawObject();
     }
 
     void drawObject() {
@@ -203,7 +225,7 @@ class Object: public Runnable {
 
 };
 
-class Player: public Runnable {
+class Player: public Runnable, public Drawable {
   int positionX;
   int positionY;
   int collisions = 0;
@@ -225,43 +247,46 @@ class Player: public Runnable {
     void loop() {
       time--;
       checkIfPostionIsInBound();
-      updateOLED();
+    }
+    
+    void draw() {
+      updateOled();
     }
 
     void changeXPostion(int newPositionX) {
       positionX = newPositionX;
       checkIfPostionIsInBound();
-      updateOLED();
+      //updateOLED();
     }
 
     void changeYPostion(int newPositionY) {
       positionY = newPositionY;
       checkIfPostionIsInBound();
-      updateOLED();
+      //updateOLED();
     }
 
     void incrementXPosition() {
       positionX++;
       checkIfPostionIsInBound();
-      updateOLED();
+      //updateOLED();
     }
 
     void decrementXPosition() {
       positionX--;
       checkIfPostionIsInBound();
-      updateOLED();
+      //updateOLED();
     }
 
     void incrementYPosition() {
       positionY++;
       checkIfPostionIsInBound();
-      updateOLED();
+      //updateOLED();
     }
 
     void decrementYPosition() {
       positionY--;
       checkIfPostionIsInBound();
-      updateOLED();
+      //updateOLED();
     }
 
     int getPositionX() {
@@ -300,12 +325,13 @@ class Player: public Runnable {
 
 };
 
+#define ACCELOREMETER_PIN 0x0B
 class Accelerometer: public Runnable {
   int8_t a = 0, b = 0, c = 0;
 
   public:
     void setup() {
-      Wire.beginTransmission(0x0B); // address of the accelerometer
+      Wire.beginTransmission(ACCELOREMETER_PIN); // address of the accelerometer
       Wire.write(0x20);
       Wire.write(0x05);
     }
@@ -326,36 +352,39 @@ class Accelerometer: public Runnable {
       return c;
     }
 
+
+//This functions looks like it could use some improvements, i'm not sure how because i haven't worked with accelerometer.
+//Are you sure you have to call Wire.endTransmission for each axis?
   void AccelerometerInit(void) {
     byte Version[3] = {0};
     int8_t x_data = 0, y_data = 0, z_data = 0;
-    Wire.beginTransmission(0x0B); // address of the accelerometer 
+    Wire.beginTransmission(ACCELOREMETER_PIN); // address of the accelerometer 
     // reset the accelerometer 
     Wire.write(0x04); // Y data
     Wire.endTransmission(); 
-    Wire.requestFrom(0x0B,1);    // request 6 bytes from slave device #2
+    Wire.requestFrom(ACCELOREMETER_PIN,1);    // request 6 bytes from slave device #2
     while(Wire.available())    // slave may send less than requested
     { 
       Version[0] = Wire.read(); // receive a byte as characte
     }  
     x_data = (int8_t)Version[0] >> 2;
     
-    Wire.beginTransmission(0x0B); // address of the accelerometer 
+    Wire.beginTransmission(ACCELOREMETER_PIN); // address of the accelerometer 
     // reset the accelerometer 
     Wire.write(0x06); // Y data
     Wire.endTransmission(); 
-    Wire.requestFrom(0x0B,1);    // request 6 bytes from slave device #2
+    Wire.requestFrom(ACCELOREMETER_PIN,1);    // request 6 bytes from slave device #2
     while(Wire.available())    // slave may send less than requested
     { 
       Version[1] = Wire.read(); // receive a byte as characte
     }  
     y_data = (int8_t)Version[1] >> 2;
     
-    Wire.beginTransmission(0x0B); // address of the accelerometer 
+    Wire.beginTransmission(ACCELOREMETER_PIN); // address of the accelerometer 
     // reset the accelerometer 
     Wire.write(0x08); // Y data
     Wire.endTransmission(); 
-    Wire.requestFrom(0x0B,1);    // request 6 bytes from slave device #2
+    Wire.requestFrom(ACCELOREMETER_PIN,1);    // request 6 bytes from slave device #2
     while(Wire.available()) 
     { 
       Version[2] = Wire.read(); // receive a byte as characte
@@ -397,81 +426,12 @@ class PlayerControlAccelerometer: public Runnable {
 
     void checkXAccerleration() {
       int8_t a = accelerometer.getA();
-      int pixelPositionX = player.getPositionX();
-
-      if (a > 5) {
-        if (a > 8) {
-          if (a > 10) {
-            if(a > 12) {
-              if (a > 15)
-              {
-                pixelPositionX = pixelPositionX - 3;
-              }
-              
-              pixelPositionX--;
-            }
-            pixelPositionX--;
-          }
-          pixelPositionX--;
-        }
-        pixelPositionX--;
-      } else if (a < -5) {
-        if (a < -8) {
-          if (a < -10) {
-            if (a < -12) {
-              if (a < -15) {
-                pixelPositionX = pixelPositionX + 3;
-              }
-              pixelPositionX++;
-            }
-            pixelPositionX++;
-          }
-          pixelPositionX++;
-        }
-        pixelPositionX++;
-      }
-
-      player.changeXPostion(pixelPositionX);
+      player.changeXPostion(player.getPositionX() - ((a) >> 2)); //i know it's not exactly the same but dividing by 4 is very fast.
     }
 
     void checkYAccerleration() {
       int8_t b = accelerometer.getB();
-      int pixelPositionY = player.getPositionY();
-
-
-      if (b > 5) {
-        if (b > 8) {
-          if (b > 10) {
-            if(b > 12) {
-              if (b > 15)
-              {
-                pixelPositionY = pixelPositionY + 3;
-              }
-              
-              pixelPositionY++;
-            }
-            pixelPositionY++;
-          }
-          pixelPositionY++;
-        }
-        pixelPositionY++;
-      } else if (b < -5) {
-        if (b < -8) {
-          if (b < -10) {
-            if (b < -12) {
-              if (b < -15) {
-                pixelPositionY = pixelPositionY - 3;
-              }
-              pixelPositionY--;
-            }
-            pixelPositionY--;
-          }
-          pixelPositionY--;
-        }
-        pixelPositionY--;
-      }
-      
-      player.changeYPostion(pixelPositionY);
+      player.changeYPostion(player.getPositionY() - ((b) >> 2)); //i know it's not exactly the same but dividing by 4 is very fast.
     }
 
 };
@@ -513,40 +473,41 @@ class ControllerStick: public Runnable {
   void loop() {
   key_analog = readKeyAnalog();
   switch(key_analog) {
-    case key_analog_no:     no();break;
-    case key_analog_up:     up();break;
-    case key_analog_down:   
-    down();
-    break;
-    case key_analog_right:
-    right();
-    break;
-    case key_analog_left:   
-    left();
-    break;
-    case key_analog_center: center();break;
+    // case key_analog_no:     no();   break;
+    // case key_analog_up:     up();   break;
+    // case key_analog_down:   down(); break;
+    // case key_analog_right:  right();break;
+    // case key_analog_left:   left(); break;
+    // case key_analog_center: center();break;
   }
 
   }
 
   enum_key_analog readKeyAnalog() {
     int adValue = analogRead(pin_analogKey);
+    //for best performance sort them in order most "often - least often" with the least often case is the last one thats checked, so that there is the last if cases possible each time.
     if(adValue > ADC_BIT * (ADC_SECTION * 2 - 1) / (ADC_SECTION * 2)) {
+      no();
       return key_analog_no;
     }
     else if(adValue > ADC_BIT * (ADC_SECTION * 2 - 3) / (ADC_SECTION * 2)) {
+      right();
       return key_analog_right;
     }
     else if(adValue > ADC_BIT * (ADC_SECTION * 2 - 5) / (ADC_SECTION * 2)) {
+      center();
       return key_analog_center;
     }
     else if(adValue > ADC_BIT * (ADC_SECTION * 2 - 7) / (ADC_SECTION * 2)) {
+      up();
       return key_analog_up;
     }
     else if(adValue > ADC_BIT * (ADC_SECTION * 2 - 9) / (ADC_SECTION * 2)) {
+      left();
       return key_analog_left;
     }
     else {
+      down();
       return key_analog_down;
     }
   }
@@ -609,8 +570,9 @@ class CollisionDetection: public Runnable {
 
 };
 
-
-
+//idk what these are supposed to be. I added them so the project is able to build.
+#define PIN_LED0 0x1
+#define PIN_LED1 0x2
 
 LED led0(PIN_LED0);
 LED led1(PIN_LED1);
@@ -639,4 +601,6 @@ void setup() {
 void loop() {
   // put your main code here, to run repeatedly: 
   Runnable::loopAll();
+
+  Drawable::drawAll();
 }
